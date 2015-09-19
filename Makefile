@@ -1,6 +1,6 @@
 
 # Add debug information and asserts?
-DEBUG_BUILD ?= y
+DEBUG_BUILD ?= n
 
 # Location and prefix of cross compiler, Linux kernel style
 CROSS_COMPILE ?=
@@ -38,21 +38,28 @@ CFILES = coproc.c coproc.h
 
 .PHONY: all clean libs tests dist
 
-all: libs tests
+all: libs
 
 # The regular and automagic version of the library
 
-libs: libcoproc.so.$(LIB_VERSION)
+libs: libcoproc.so
 
 libcoproc.so.$(LIB_VERSION): $(CFILES) Makefile
 	$(CC) -fPIC $(CFILES) $(LIBS_CFLAGS) $(LIBS_LDFLAGS) \
 		-Wl,-soname,libcoproc.so.$(LIB_API_VERSION) -o libcoproc.so.$(LIB_VERSION)
 
+libcoproc.so: libcoproc.so.$(LIB_API_VERSION)
+	ln -fs $< $@
+
+libcoproc.so.$(LIB_API_VERSION): libcoproc.so.$(LIB_VERSION)
+	ln -fs $< $@
+
 # Unit tests.
 # Make sure to ldconfig -n `pwd` before running
 
-tests: libcoproc.so.$(LIB_VERSION) test.c Makefile
-	$(CC) coproc.c test.c $(TESTS_CFLAGS) $(TESTS_LDFLAGS) -o test
+tests: test.c Makefile libcoproc.so
+	$(CC) coproc.c test.c $(TESTS_CFLAGS) $(TESTS_LDFLAGS) -L. -lcoproc \
+		-Wl,-rpath,$(PWD) -o test
 
 dist: clean
 	rm -f libcoproc-$(LIB_VERSION).tar.bz2 && \
@@ -63,4 +70,4 @@ dist: clean
 	rm -rf libcoproc-$(LIB_VERSION)
 
 clean:
-	rm -f *.o test *~ libcoproc.so.$(LIB_VERSION)
+	rm -f *.o test *~ libcoproc.so{.$(LIB_VERSION),.$(LIB_API_VERSION),}
